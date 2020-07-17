@@ -1,0 +1,203 @@
+/*----------------------------------------------------------------------------
+--------------------- 1ra. Area: Codigo de Usuario
+----------------------------------------------------------------------------*/
+
+//-------> Importaciones 
+//-------> Paquetes 
+
+package Analizador;
+
+import java_cup.runtime.Symbol;
+import java.util.*;
+import Arbol.*;
+/*import Funcionamiento.*;
+import Matriz.*;
+import Errores.*;*/
+
+
+
+//-------> Codigo para el parser, variables, metodos
+
+parser code
+{:  
+    //public ArrayList<SyntaxError> TablaErr = new ArrayList<>();
+    
+    public Nodo raiz;
+    //public Tabla tab;
+
+    //Metodo al que se llama automaticamente ante algun error sintactico
+    public void syntax_error(Symbol s)
+    {        
+        String lexema = s.value.toString();
+        int fila = s.right;
+        int columna = s.left;
+        
+        System.out.println("!!!!!!! Error Sintactico Recuperado !!!!!!!");
+        System.out.println("\t\tLexema: "+lexema);
+        System.out.println("\t\tFila: "+fila);
+        System.out.println("\t\tColumna: "+columna);
+       
+        //TablaErr.add(new SyntaxError("Sintactico", fila, columna, lexema + " no esperado", "Archivo de Datos"));
+    }
+
+    //Metodo al que se llama en el momento en que ya no es posible una recuperacion de errores
+    public void unrecovered_syntax_error(Symbol s) throws java.lang.Exception
+    {        
+        String lexema = s.value.toString();
+        int fila = s.right;
+        int columna = s.left;
+        
+        System.out.println("!!!!!!! Error Sintactico, Panic Mode !!!!!!! ");
+        System.out.println("\t\tLexema: "+lexema);
+        System.out.println("\t\tFila: "+fila);
+        System.out.println("\t\tColumna: "+columna);
+
+        //TablaErr.add(new SyntaxError("Sintactico", fila, columna, lexema + " no esperado: PANIC MODE", "Archivo de Datos"));
+    }
+
+    public void semantic(Symbol cur_token, String n) 
+    {
+        System.out.println("error semantico ");
+    }
+
+    public void semantic(String msg, Object obj) {}
+
+:}
+
+
+//-------> Codigo para las acciones gramaticales
+
+action code
+{:
+    //METODOS Y VARIABLES QUE SOLO PUEDEN SER ACCEDIDAS DENTRO DEL PARSER
+    int exponente(int exp){
+        int resultado= 1;
+        for(int i=1; i<exp; i++){
+            resultado = resultado *2;
+        }
+        return resultado;
+    }
+
+:}  
+
+
+
+/*----------------------------------------------------------------------------
+--------------------- 2da. Area: Declaraciones
+----------------------------------------------------------------------------*/
+// DEFAULT : OBJECT
+//-------> Simbolos
+terminal para, parc, pyc, mas, menos;
+terminal negativo;
+
+//-------> Reservadas del sistema
+terminal imprimir;
+terminal String numero, sstring, id;
+
+non terminal Nodo INICIO;
+non terminal Nodo LI;
+non terminal Nodo I;
+non terminal Nodo E;
+
+//menor 
+precedence left mas, menos;
+precedence left negativo; 
+//mayor
+
+start with INICIO;
+
+
+/*-------------------------------------------------------------------
+--------------------- 3ra. y ultima area: Reglas Sintacticas
+-------------------------------------------------------------------*/
+INICIO ::= LB:a {:
+            raiz = new Nodo("INICIO", "", aright, aleft);
+            raiz.agregarHijo(a);
+        :}
+        ;
+
+LB ::= LB:a BLOQUE:b {:
+        RESULT = a;
+        RESULT.agregarHijo(b);
+    :} 
+    | BLOQUE:a {:
+        RESULT = new Nodo("LB", "", aright, aleft);
+        RESULT.agregarHijo(a);
+    :}
+
+BLOQUE ::= llavea LI:a llavec {:
+        RESULT = a;
+    :}
+
+LI ::= LI:a I:b {:
+        RESULT = a;
+        RESULT.agregarHijo(b);
+    :}
+    | I:a {:
+        Nodo padre = new Nodo("LI", "", aright, aleft);
+        padre.agregarHijo(a);
+        RESULT = padre;
+    :} 
+    ;
+
+I ::= IMP:a {:
+        RESULT = a;
+    :}
+    | DECLARACION:a {:
+        RESULT = a;
+    :}
+    ;
+
+DECLARACION ::= TIPO:t id:i igual E:exp pyc {:
+        RESULT = new Nodo("DECLARACION", "", tright, tleft);
+        RESULT.agregarHijo(t);
+        RESULT.agregarHijo(new Nodo("Identificador", i, iright, ileft));
+        RESULT.agregarHijo(exp);
+    :}
+
+TIPO ::= rstring:a {:
+        RESULT = new Nodo("Reservada String", a, aright, aleft);
+    :}
+    | rint:a {:
+        RESULT = new Nodo("Reservada Int", a, aright, aleft);
+    :}
+    ;
+
+IMP ::= imprimir:im para:pa E:exp parc:pc pyc:pyc {:
+        Nodo padre = new Nodo("I", "", imright, imleft);
+        padre.agregarHijo(new Nodo("Reservada imprimir", im, imright, imleft));
+        padre.agregarHijo(new Nodo("Paréntesis Abierto", pa, paright, paleft));
+        padre.agregarHijo(exp);
+        padre.agregarHijo(new Nodo("Paréntesis Cerrado", pc, pcright, pcleft));
+        padre.agregarHijo(new Nodo("Punto y Coma", pyc, pycright, pycleft));
+        RESULT = padre;
+    :}
+    ;
+
+E ::= E:a mas:m E:b {:
+        RESULT = new Nodo("Suma", "", aright, aleft);
+        RESULT.agregarHijo(a);
+        RESULT.agregarHijo(new Nodo("+", "", mright, mleft));
+        RESULT.agregarHijo(b);
+    :}
+    | E:a menos:m E:b {:
+        RESULT = new Nodo("Resta", "", aright, aleft);
+        RESULT.agregarHijo(a);
+        RESULT.agregarHijo(new Nodo("-", "", mright, mleft));
+        RESULT.agregarHijo(b);
+    :}
+    | menos:m E:a {:
+        RESULT = new Nodo("Negativo", "", aright, aleft);
+        RESULT.agregarHijo(new Nodo("-", "", mright, mleft));
+        RESULT.agregarHijo(a);
+    :} %prec negativo
+    | sstring:a {:
+        RESULT = new Nodo("String", a, aright, aleft);
+    :}
+    | numero:a {:
+        RESULT = new Nodo("Numero", a, aright, aleft);
+    :}
+    | id:a {:
+        RESULT = new Nodo("Identificador", a, aright, aleft);
+    :}
+    ;
